@@ -1,0 +1,67 @@
+cd ~/documents/MUD/Discworld
+
+# No existing discworld session? Then create one
+if [[ ! $(tmux ls -F '#S') =~ discworld ]]; then
+    # Flag that we've just created a session
+    DISC_SESSION_CREATE=1
+
+    # Zero out log files to keep size down
+    rm logs/minimap.log && touch logs/minimap.log
+    rm logs/mapdoortext.log && touch logs/mapdoortext.log
+    rm logs/chat.log && touch logs/chat.log
+    
+    # Start a new tmux session named "discworld"
+    tmux new-session -d -A -D -s discworld
+fi
+
+# If we're in TMUX, or we just created a new session, make a layout
+if [ -n "$TMUX" ] || [ "$DISC_SESSION_CREATE" = "1" ]; then
+
+    # Kill any existing panes but the one we're "starting" in if in tmux already
+    if [ -n "$TMUX" ]; then
+        tmux kill-pane -a -t discworld:0.0
+    fi
+
+    # Create the top pane with 6 lines
+    tmux split-window -v -b -p 10
+    # Panes: 0 (top), 1 (bottom)
+    tmux select-pane -t discworld:0.1
+
+    # Create the right column with two panes, each about 30 chars wide
+    tmux split-window -h -l 10
+    # Panes: 1 (left), 2 (right)
+    tmux split-window -v -p 50
+    # Panes: 1 (left), 2 (top right), 3 (bottom right)
+
+    # Create the left column with three panes
+    tmux select-pane -t discworld:0.1
+    tmux split-window -v -l 9
+    #tmux select-pane -t discworld:0.4
+    # Panes: 1 (top left), 4 (middle left), 2 (top right), 3 (bottom right)
+    tmux split-window -v -l 2
+    # Panes: 1 (top left), 4 (middle left), 5 (bottom left), 2 (top right), 3 (bottom right)
+
+    # Select the bottom pane for control
+    tmux select-pane -t discworld:0.3
+
+    #   0     
+    #--------
+    # 1 | 4
+    #---|
+    # 2 |----
+    # --| 5
+    # 3 |
+    #--------
+    tmux send-keys -t discworld:0.0 'clear && tail -fs .5 logs/chat.log' 'C-m'
+    tmux send-keys -t discworld:0.4 './bin/grp' 'C-m'
+    tmux send-keys -t discworld:0.5 './bin/map' 'C-m'
+    tmux send-keys -t discworld:0.1 './bin/dt' 'C-m'
+    tmux send-keys -t discworld:0.2 './bin/mdt' 'C-m'
+    tmux send-keys 'clear && tt++ -G config.tin' 'C-m'
+fi
+
+if [ -z "$TMUX" ]; then
+    echo "Not already in TMUX, so let's attach"
+    # If we aren't already inside of TMUX, then attach to our session
+    tmux -2 attach-session -t discworld -d
+fi
